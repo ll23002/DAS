@@ -1,3 +1,5 @@
+resultados/
+results_synthetic/
 # Datos y resultados
 *.csv
 *.pdf
