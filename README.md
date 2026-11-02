@@ -1,8 +1,6 @@
 
 ---
 
-## La Gran Analogía: ¿Qué estamos construyendo en código?
-
 Imagina el siguiente problema de visión por computadora o medicina:
 Quieres hacer una **tomografía o ultrasonido del subsuelo** para mapear una grieta geológica profunda (una **falla tectónica**), pero tienes dos restricciones críticas:
 1. **No puedes meter fuentes activas:** No puedes detonar dinamita, ni usar martillos hidráulicos, ni esperar a que haya un terremoto destructivo.
@@ -16,7 +14,7 @@ El software toma ese ruido caótico, extrae mediante **procesamiento digital de 
 ---
 
 
-#### 1. ¿Qué es físicamente un cable DAS para un programador?
+#### 1. ¿Qué es físicamente un cable DAS?
 Un equipo interrogador envía pulsos láser ultra rápidos por el cable de fibra óptica. Cada vez que el suelo vibra, estira o encoge microscópicamente el vidrio de la fibra, alterando la fase de la luz retrodispersada.
 El interrogador calcula la **tasa de deformación** (*Strain Rate*).
 
