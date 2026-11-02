@@ -1,0 +1,65 @@
+# Datos y resultados
+*.csv
+*.pdf
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.mat
+
+# Imágenes y vídeos
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tif
+*.tiff
+*.webp
+*.svg
+*.mp4
+*.avi
+*.mov
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Archivos temporales y registros
+*.log
+*.tmp
+*.temp
+*.bak
+*.old
+*.cache
+*~
+
+# Carpetas generadas
+build/
+dist/
+*.egg-info/
+resultados/
+results_synthetic/
+
+# Archivos comprimidos
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
