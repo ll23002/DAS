@@ -1,0 +1,67 @@
+
+
+# Qué procesar: real (datos de fibra óptica), sintetico (modelos de prueba) o ambos
+modo: [real, sintetico]
+
+real:
+  datos: ~/Downloads/DAS/M4.1_Guatemala   # carpeta con los archivos .h5 (o un solo archivo .h5)
+  resultados: resultados/real             # carpeta donde se guardan figuras y tablas
+  max_archivos: null                      # null = usar todos; o un número para usar solo los primeros
+
+  cable:
+    canal_inicial: 1200                   # primer canal (punto del cable) a analizar
+    num_canales: 600                      # cuántos canales analizar
+
+  filtrado:
+    frecuencia_muestreo_hz: 50.0          # frecuencia a la que se reducen los datos
+    frecuencia_min_hz: 0.8                # frecuencia mínima de interés
+    frecuencia_max_hz: 4.5                # frecuencia máxima de interés
+
+  correlacion:
+    retardo_max_s: 3.5                    # tiempo máximo de la función de Green (se muestra de -T a +T)
+    num_fuentes_virtuales: 4              # cantidad de fuentes virtuales
+    receptores_paso: 4                    # separación entre receptores (en canales)
+    offset_forma_onda_km: auto            # distancia de la forma de onda en la figura (auto o un número en km)
+
+  filtro_fk:
+    velocidad_min_ms: 800                 # velocidad aparente mínima que se conserva (m/s)
+    velocidad_max_ms: 3500                # velocidad aparente máxima que se conserva (m/s)
+
+  modelo_velocidad:
+    num_celdas_profundidad: 120           # celdas del modelo en profundidad
+    paso_profundidad_m: 10.0              # tamaño de cada celda en profundidad (m)
+    sedimento_velocidad_ms: 1100.0        # velocidad en superficie del sedimento (m/s)
+    sedimento_gradiente: 0.4              # aumento de velocidad con la profundidad (sedimento)
+    roca_velocidad_ms: 2400.0             # velocidad en superficie de la roca (m/s)
+    roca_gradiente: 0.2                   # aumento de velocidad con la profundidad (roca)
+    sedimento_a_la_izquierda: true        # true si el sedimento está a la izquierda de la falla
+    celdas_inundacion: 8                  # celdas de margen alrededor de la falla en la inundación
+
+  migracion:
+    paso_tiempo_s: 0.0015                 # paso de tiempo de la simulación (s)
+    frecuencia_ricker_hz: 2.0             # frecuencia central de la fuente de simulación (Hz)
+    celdas_esponja: 20                    # celdas de borde que absorben las ondas
+    intervalo_instantaneas: 2             # cada cuántos pasos se guarda una instantánea
+
+sintetico:
+  resultados: resultados/sintetico        # carpeta donde se guardan las figuras
+  paso_tiempo_s: 0.002                    # paso de tiempo de la simulación (s)
+  duracion_s: 3.5                         # duración de la simulación (s)
+  frecuencia_ricker_hz: 2.5               # frecuencia central de la fuente (Hz)
+  celdas_esponja: 25                      # celdas de borde que absorben las ondas
+  celdas_inundacion: 12                   # celdas de margen alrededor de la falla en la inundación
+  num_fuentes: 6                          # cantidad de fuentes
+  num_receptores: 30                      # cantidad de receptores
+  intervalo_instantaneas: 2               # cada cuántos pasos se guarda una instantánea
+  malla:
+    celdas_x: 280                         # celdas en horizontal
+    celdas_z: 130                         # celdas en profundidad
+    paso_x_m: 20.0                        # tamaño de celda horizontal (m)
+    paso_z_m: 20.0                        # tamaño de celda en profundidad (m)
+  # Casos a ejecutar. tipo: vertical o inclinada. error_roca: error de velocidad de la roca (0.10 = +10 %)
+  casos:
+    - {nombre: falla_vertical, tipo: vertical, falla_x: 140}
+    - {nombre: falla_inclinada_65, tipo: inclinada, angulo: 65.0, falla_x: 140}
+    - {nombre: falla_inclinada_35, tipo: inclinada, angulo: 35.0, falla_x: 130}
+    - {nombre: vertical_roca_mas10, tipo: vertical, falla_x: 140, error_roca: 0.10}
+    - {nombre: vertical_roca_menos10, tipo: vertical, falla_x: 140, error_roca: -0.10}
