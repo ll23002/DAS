@@ -48,7 +48,7 @@ El ruido crudo no se puede meter directo al algoritmo porque contiene ruidos ele
 #### Blanqueamiento Espectral (`spectral_whitening`)
 - Si hay una bomba de agua o un motor cerca del cable vibrando constantemente a $2.7\text{ Hz}$, esa sola frecuencia monopolizaría la correlación cruzada con una onda senoidal eterna.
 - Pasar la señal al dominio de Fourier (`rfft`), calcular la envolvente del espectro de amplitud, y dividir el espectro real por dicha envolvente:
-  $$\text{Dato\_Blanqueado}(f) = \frac{\text{Dato}(f)}{|\text{Dato}(f)| + \epsilon}$$
+  $$\text{Dato\ Blanqueado}(f) = \frac{\text{Dato}(f)}{|\text{Dato}(f)| + \epsilon}$$
   Así, todas las frecuencias dentro del rango $[0.8, 4.5]\text{ Hz}$ tienen exactamente la misma energía (espectro plano, como el ruido blanco).
 
 ---
