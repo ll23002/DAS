@@ -20,6 +20,13 @@ from tsw_rtm.interferometry import (
     build_virtual_shot_gather,
     full_green_function
 )
+from tsw_rtm.dispersion import (
+    compute_kf_grid,
+    compute_fv_spectrum,
+    extract_dispersion_and_1d_profile,
+    compute_fs_spectrum
+)
+from tsw_rtm.doc_builder import build_das_guide_docx
 from tsw_rtm.velocity_flood import generate_velocity_flood_models
 from tsw_rtm.wave_solver import WaveSolver2D, ricker_wavelet
 from tsw_rtm.rtm_engine import TSWRTMEngine
@@ -29,7 +36,11 @@ from tsw_rtm.visualizer import (
     plot_flood_models,
     plot_tsw_rtm_image,
     plot_fk_spectra,
+    plot_fk_spectra_batches,
     plot_ccf_and_green,
+    plot_fk_dispersion_image_c,
+    plot_fv_and_1d_profile,
+    plot_fs_spectrum,
     save_matrix_csv
 )
 
@@ -207,10 +218,43 @@ def run_pipeline(cfg):
         titles=[s[0] for s in fk_store], save_path=f"{output_dir}/6_fk_per_file.png", fmax_plot=fmax + 1.0,
         vlines=(fk_vmin, fk_vmax)
     )
+    plot_fk_spectra_batches(
+        spectra=[s[1] for s in fk_store], freqs=fk_store[0][2], wavenumbers=fk_store[0][3],
+        titles=[s[0] for s in fk_store], save_prefix=f"{output_dir}/6_fk", fmax_plot=fmax + 1.0,
+        vlines=(fk_vmin, fk_vmax), batch_size=3
+    )
     with open(f"{output_dir}/csv/6_fk_metrics_per_file.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(fk_rows[0].keys()))
         w.writeheader()
         w.writerows(fk_rows)
+
+    # 2.1, 2.2, 2.3 Dispersion Analysis: F-K Image C, F-V with 1D profile, F-S
+    print("Calculando espectros de dispersión (F-K imagen c, F-V con 1D, F-S)...")
+    mean_fk_pow = np.mean([s[1] for s in fk_store], axis=0)
+    fk_f_axis = fk_store[0][2]
+    fk_k_axis = fk_store[0][3]
+
+    # Numeral 2.1: Image c (k vs f)
+    p_kf, f_sel_c, k_sel_km = compute_kf_grid(
+        mean_fk_pow, fk_f_axis, fk_k_axis, fmax=min(80.0, target_fs / 2.0), kmax_km=25.0
+    )
+    plot_fk_dispersion_image_c(f_sel_c, k_sel_km, p_kf, save_path=f"{output_dir}/2_1_fk_dispersion_c.png")
+    save_matrix_csv(f"{output_dir}/csv/2_1_fk_dispersion_c.csv", p_kf, k_sel_km, f_sel_c, "wavenumber_1_per_km", "freq_Hz")
+
+    # Numeral 2.2: F-V and 1D Vs profile
+    p_fv, f_sel_v, v_kms = compute_fv_spectrum(
+        mean_fk_pow, fk_f_axis, fk_k_axis, fmin=fmin, fmax=min(45.0, target_fs / 2.0)
+    )
+    v_curve, depth_m, vs_kms = extract_dispersion_and_1d_profile(p_fv, f_sel_v, v_kms)
+    plot_fv_and_1d_profile(f_sel_v, v_kms, p_fv, depth_m, vs_kms, save_path=f"{output_dir}/2_2_fv_and_1d_profile.png")
+    save_matrix_csv(f"{output_dir}/csv/2_2_fv_spectrum.csv", p_fv, v_kms, f_sel_v, "velocity_km_per_s", "freq_Hz")
+
+    # Numeral 2.3: F-S
+    p_fs, f_sel_s, s_skm = compute_fs_spectrum(
+        mean_fk_pow, fk_f_axis, fk_k_axis, fmin=fmin, fmax=min(45.0, target_fs / 2.0)
+    )
+    plot_fs_spectrum(f_sel_s, s_skm, p_fs, save_path=f"{output_dir}/2_3_fs_spectrum.png")
+    save_matrix_csv(f"{output_dir}/csv/2_3_fs_spectrum.csv", p_fs, s_skm, f_sel_s, "slowness_s_per_km", "freq_Hz")
 
     n_files_done = len(file_list)
     for src_local in v_src_local_indices:
@@ -285,7 +329,8 @@ def run_pipeline(cfg):
         dx=dx_sim,
         dz=dz_sim,
         fault_x_idx=fault_x_idx,
-        save_path=f"{output_dir}/3_das_flood_models.png"
+        save_path=f"{output_dir}/3_das_flood_models.png",
+        fault_label="Falla supuesta"
     )
     for name, model in (("true_vel", base_vel), ("sediment_flood", flood_models.sediment_flood),
                         ("rock_flood", flood_models.rock_flood)):
@@ -336,9 +381,38 @@ def run_pipeline(cfg):
         dx=dx_sim,
         dz=dz_sim,
         title=f"TSW-RTM Fault Image from DAS Ambient Noise ({n_files_done} files stacked)",
-        save_path=f"{output_dir}/4_das_migrated_fault_image.png"
+        save_path=f"{output_dir}/4_das_migrated_fault_image.png",
+        fault_label="Falla supuesta"
     )
     save_matrix_csv(f"{output_dir}/csv/4_migrated_fault_image.csv", rtm_res.laplacian_image,
                     np.arange(nz) * dz_sim / 1000.0, np.arange(nx) * dx_sim / 1000.0, "depth_km", "distance_km")
+
+    lado_sed = "izquierda" if vm.sedimento_a_la_izquierda else "derecha"
+    parameters = [
+        ("Modelo de velocidad", "Velocidad del sedimento en superficie", f"{vm.sedimento_velocidad_ms:g} m/s"),
+        ("Modelo de velocidad", "Aumento de velocidad con la profundidad (sedimento)", f"{vm.sedimento_gradiente:g} m/s por metro"),
+        ("Modelo de velocidad", "Velocidad de la roca en superficie", f"{vm.roca_velocidad_ms:g} m/s"),
+        ("Modelo de velocidad", "Aumento de velocidad con la profundidad (roca)", f"{vm.roca_gradiente:g} m/s por metro"),
+        ("Modelo de velocidad", "Posición de la falla supuesta", f"x = {fault_x_idx * dx_sim / 1000.0:.2f} km (centro de la ventana)"),
+        ("Modelo de velocidad", "Lado del sedimento respecto a la falla", lado_sed),
+        ("Modelo de velocidad", "Tamaño de la malla", f"{nx} x {nz} celdas de {dx_sim:.2f} m x {dz_sim:g} m"),
+        ("Modelo de velocidad", "Profundidad del modelo", f"{nz * dz_sim / 1000.0:g} km"),
+        ("Modelo de velocidad", "Margen de inundación lateral", f"{vm.celdas_inundacion} celdas"),
+        ("Migración", "Paso de tiempo de la simulación", f"{mig.paso_tiempo_s:g} s"),
+        ("Migración", "Frecuencia central de la fuente (Ricker)", f"{mig.frecuencia_ricker_hz:g} Hz"),
+        ("Migración", "Duración simulada", f"{max_lag_s:g} s"),
+        ("Migración", "Celdas de borde absorbente", f"{mig.celdas_esponja}"),
+        ("Migración", "Intervalo de instantáneas", f"cada {mig.intervalo_instantaneas} pasos"),
+        ("Migración", "Fuentes virtuales", f"{n_srcs} (canales {', '.join(str(channel_start + int(s)) for s in v_src_local_indices)})"),
+        ("Migración", "Receptores", f"{len(rec_local_indices)}, uno cada {real.correlacion.receptores_paso} canales"),
+        ("Migración", "Filtro F-K aplicado a los registros", f"{fk_vmin:g} a {fk_vmax:g} m/s"),
+    ]
+
+    print("\nGenerando documento editable Word/Google Docs...")
+    try:
+        doc_file = build_das_guide_docx(output_dir, parameters=parameters)
+        print(f"Documento de guía generado con éxito: '{doc_file}'")
+    except Exception as e:
+        print(f"Advertencia al generar documento .docx: {e}")
 
     print(f"\nProcesamiento DAS terminado. Resultados en '{output_dir}'.")
