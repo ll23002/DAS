@@ -133,22 +133,23 @@ def plot_fk_spectra(
     nrows = int(np.ceil(n / ncols))
     fig, axes = plt.subplots(nrows, ncols, figsize=(5.0 * ncols, 4.2 * nrows), squeeze=False)
     db = [10 * np.log10(s + 1e-30) for s in spectra]
-    vmax = max(np.max(d) for d in db)
-    vmin = vmax - 40.0
     fsel = (freqs >= 0) & (freqs <= fmax_plot)
+    vmax = float(np.percentile(np.concatenate([d[fsel].ravel() for d in db]), 99.8))
+    vmin = vmax - 25.0
     kmax = np.max(np.abs(wavenumbers))
 
     for idx, (d, t) in enumerate(zip(db, titles)):
         r, c = divmod(idx, ncols)
         ax = axes[r, c]
         im = ax.imshow(
-            d[fsel], aspect='auto', cmap='magma', origin='lower',
+            d[fsel], aspect='auto', cmap='inferno_r', origin='lower',
             extent=[wavenumbers[0], wavenumbers[-1], freqs[fsel][0], freqs[fsel][-1]],
             vmin=vmin, vmax=vmax
         )
         kk = np.linspace(-kmax, kmax, 2)
         for v in vlines:
-            ax.plot(kk, np.abs(kk) * v, 'c--', lw=0.8)
+            ax.plot(kk, np.abs(kk) * v, '--', color='#0077bb', lw=0.9, alpha=0.85)
+        ax.set_xlim(wavenumbers[0], wavenumbers[-1])
         ax.set_ylim(0, fmax_plot)
         ax.set_title(t, fontsize=8)
         ax.set_xlabel("Wavenumber (1/m)", fontsize=9)
@@ -181,9 +182,9 @@ def plot_fk_spectra_batches(
     """
     n = len(spectra)
     db = [10 * np.log10(s + 1e-30) for s in spectra]
-    vmax = max(np.max(d) for d in db)
-    vmin = vmax - 40.0
     fsel = (freqs >= 0) & (freqs <= fmax_plot)
+    vmax = float(np.percentile(np.concatenate([d[fsel].ravel() for d in db]), 99.8))
+    vmin = vmax - 25.0
     kmax = np.max(np.abs(wavenumbers))
 
     saved_paths = []
@@ -200,13 +201,14 @@ def plot_fk_spectra_batches(
         axes = axes[0]
         for ax, d, t in zip(axes, b_spectra, b_titles):
             im = ax.imshow(
-                d[fsel], aspect='auto', cmap='magma', origin='lower',
+                d[fsel], aspect='auto', cmap='inferno_r', origin='lower',
                 extent=[wavenumbers[0], wavenumbers[-1], freqs[fsel][0], freqs[fsel][-1]],
                 vmin=vmin, vmax=vmax
             )
             kk = np.linspace(-kmax, kmax, 2)
             for v in vlines:
-                ax.plot(kk, np.abs(kk) * v, 'c--', lw=0.8)
+                ax.plot(kk, np.abs(kk) * v, '--', color='#0077bb', lw=0.9, alpha=0.85)
+            ax.set_xlim(wavenumbers[0], wavenumbers[-1])
             ax.set_ylim(0, fmax_plot)
             ax.set_title(t, fontsize=8)
             ax.set_xlabel("Wavenumber (1/m)", fontsize=9)
@@ -396,7 +398,7 @@ def plot_fk_dispersion_image_c(
     # Log power for visualization
     db = 10.0 * np.log10(power_kf + 1e-30)
     vmax = np.percentile(db, 99.5)
-    vmin = vmax - 35.0
+    vmin = vmax - 40.0
 
     extent = [freqs[0], freqs[-1], wavenumbers_km[0], wavenumbers_km[-1]]
     im = ax.imshow(
@@ -419,15 +421,15 @@ def plot_fk_dispersion_image_c(
 
     # Place text labels along slopes like figure c)
     if freqs[-1] >= 20:
-        idx_label1 = int(len(f_ref) * 0.35)
-        if k_1kms[idx_label1] <= wavenumbers_km[-1]:
-            ax.text(f_ref[idx_label1] - 4, k_1kms[idx_label1], "1 km/s", rotation=60, fontsize=10, fontweight='bold')
-        idx_label4 = int(len(f_ref) * 0.75)
-        if k_4kms[idx_label4] <= wavenumbers_km[-1]:
-            ax.text(f_ref[idx_label4] + 1, k_4kms[idx_label4], "4 km/s", rotation=25, fontsize=10, fontweight='bold')
+        idx_label1 = int(len(f_ref) * 0.22)
+        if idx_label1 < len(f_ref) and k_1kms[idx_label1] <= wavenumbers_km[-1]:
+            ax.text(f_ref[idx_label1] - 3.5, k_1kms[idx_label1] - 0.5, "1 km/s", rotation=68, fontsize=10, fontweight='bold')
+        idx_label4 = int(len(f_ref) * 0.70)
+        if idx_label4 < len(f_ref) and k_4kms[idx_label4] <= wavenumbers_km[-1]:
+            ax.text(f_ref[idx_label4] + 1.0, k_4kms[idx_label4] + 0.3, "4 km/s", rotation=25, fontsize=10, fontweight='bold')
 
-    ax.set_xlim(freqs[0], freqs[-1])
-    ax.set_ylim(wavenumbers_km[0], wavenumbers_km[-1])
+    ax.set_xlim(0.0, min(100.0, freqs[-1]))
+    ax.set_ylim(0.0, min(25.0, wavenumbers_km[-1]))
     ax.set_xlabel("Frequency (Hz)", fontsize=11)
     ax.set_ylabel("Wavenumber (1/km)", fontsize=11)
     ax.set_title("c) F-K Dispersion Spectrum (Energy ridge)", fontsize=12, fontweight='bold', loc='left')
@@ -455,8 +457,14 @@ def plot_fv_and_1d_profile(
     """
     fig, axes = plt.subplots(1, 2, figsize=(13, 6), gridspec_kw={"width_ratios": [1.4, 0.9]})
 
-    # Panel a: f-v spectrum
-    norm_fv = power_fv / (np.max(power_fv, axis=0, keepdims=True) + 1e-12)
+    # Panel a: f-v spectrum with normalized energy
+    col_max = np.max(power_fv, axis=0, keepdims=True)
+    global_max = np.max(power_fv)
+    # Mask frequencies where signal is negligible (below 3% of global peak) to avoid amplifying numerical noise
+    valid_cols = (col_max > 0.03 * global_max)
+    norm_fv = np.where(valid_cols, power_fv / (col_max + 1e-12), power_fv / (global_max + 1e-12))
+    norm_fv = np.clip(norm_fv, 0.0, 1.0)
+
     extent = [freqs[0], freqs[-1], velocities_kms[0], velocities_kms[-1]]
     im = axes[0].imshow(
         norm_fv,
@@ -467,34 +475,87 @@ def plot_fv_and_1d_profile(
         vmin=0.1,
         vmax=1.0
     )
+    axes[0].set_xlim(0.0, min(60.0, freqs[-1]))
+    axes[0].set_ylim(velocities_kms[0], velocities_kms[-1])
     axes[0].set_xlabel("Frequency (Hz)", fontsize=11)
     axes[0].set_ylabel("Phase Velocity (km/s)", fontsize=11)
-    axes[0].set_title("Espectro F-V (Velocidad de fase)", fontsize=11, fontweight='bold')
+    axes[0].set_title("a) Espectro F-V (Velocidad de fase)", fontsize=11, fontweight='bold', loc='left')
     fig.colorbar(im, ax=axes[0], label="Normalized energy")
 
-    # Annotations like paper
-    if len(freqs) > 20:
-        f_mid = float(freqs[len(freqs) // 2])
-        axes[0].text(f_mid, velocities_kms[-1] * 0.85, "Leaky modes", color='navy', fontweight='bold',
-                     ha='center', bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7))
-        axes[0].text(f_mid, velocities_kms[0] + 0.3, "Normal modes", color='darkred', fontweight='bold',
-                     ha='center', bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7))
+    # Annotations like paper (Normal modes, Leaky modes)
+    if freqs[-1] >= 40:
+        axes[0].annotate("Normal modes", xy=(25, 1.4), xytext=(35, 1.1),
+                         arrowprops=dict(facecolor='black', arrowstyle='->', lw=1.2),
+                         fontsize=10, fontweight='bold', bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8))
+        axes[0].annotate("Leaky modes", xy=(55, 2.7), xytext=(45, 3.3),
+                         arrowprops=dict(facecolor='black', arrowstyle='->', lw=1.2),
+                         fontsize=10, fontweight='bold', bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8))
 
     # Panel b: 1D Vs profile in depth
     if len(depth_m) > 0 and len(vs_kms) > 0:
         axes[1].step(vs_kms * 1000.0, depth_m, where='post', color='crimson', lw=2, label="Vs estimado (1D)")
         axes[1].fill_betweenx(depth_m, 0, vs_kms * 1000.0, step='post', color='crimson', alpha=0.15)
-        axes[1].set_xlim(min(200.0, np.min(vs_kms * 1000.0) * 0.9), np.max(vs_kms * 1000.0) * 1.15)
+        axes[1].set_xlim(min(200.0, np.min(vs_kms * 1000.0) * 0.9), max(2200.0, np.max(vs_kms * 1000.0) * 1.1))
         axes[1].set_ylim(max(depth_m), 0.0)  # Inverted depth axis (0 at top)
         axes[1].set_xlabel("Vs (m/s)", fontsize=11)
         axes[1].set_ylabel("Profundidad z (m)", fontsize=11)
-        axes[1].set_title("b) Modelo 1D en profundidad", fontsize=11, fontweight='bold')
+        axes[1].set_title("b) Modelo 1D regional (0 - 1000 m)", fontsize=11, fontweight='bold', loc='left')
         axes[1].grid(True, linestyle='--', alpha=0.5)
         axes[1].legend(loc='lower left')
     else:
         axes[1].text(0.5, 0.5, "Datos de profundidad insuficientes", ha='center', va='center')
 
     fig.suptitle("2.2 Espectros frecuencia-velocidad y modelo 1D en profundidad", fontsize=12, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=200)
+    plt.close()
+    print(f"Saved figure to {save_path}")
+
+
+def plot_depth_zoom_vs30(
+    depth_m: np.ndarray,
+    vs_kms: np.ndarray,
+    vs30_val: float,
+    site_class: str,
+    save_path: str = "2_2_c_vs30_depth_zoom.png"
+):
+    """
+    Plots zoomed 1D shear-wave velocity profile down to 400 m,
+    highlighting the 30 m depth horizon and the calculated Vs30.
+    """
+    fig, ax = plt.subplots(figsize=(7, 6))
+
+    mask400 = (depth_m >= 0.0) & (depth_m <= 400.0)
+    z_sub = depth_m[mask400]
+    vs_sub = vs_kms[mask400] * 1000.0  # convert to m/s
+
+    ax.step(vs_sub, z_sub, where='post', color='crimson', lw=2.2, label="Perfil Vs (0 - 400 m)")
+    ax.fill_betweenx(z_sub, 0, vs_sub, step='post', color='crimson', alpha=0.15)
+
+    # 30 m horizontal reference line
+    ax.axhline(30.0, color='blue', linestyle='--', lw=2.0, label="Profundidad 30 m (Vs30)")
+
+    # Inverted depth axis (0 at top, 400 at bottom)
+    ax.set_ylim(400.0, 0.0)
+    ax.set_xlim(min(200.0, np.min(vs_sub) * 0.9), max(1800.0, np.max(vs_sub) * 1.15))
+    ax.set_xlabel("Velocidad de onda de corte Vs (m/s)", fontsize=11)
+    ax.set_ylabel("Profundidad z (m)", fontsize=11)
+    ax.set_title("c) Perfil 1D somero (0 - 400 m) y estimación de Vs30", fontsize=12, fontweight='bold', loc='left')
+    ax.grid(True, linestyle='--', alpha=0.5)
+
+    # Text box with Vs30 and Soil Class
+    text_info = f"Vs30 = {vs30_val:.1f} m/s\n{site_class}"
+    ax.text(
+        0.95, 0.45, text_info,
+        transform=ax.transAxes,
+        fontsize=11,
+        fontweight='bold',
+        va='center',
+        ha='right',
+        bbox=dict(boxstyle='round,pad=0.5', facecolor='aliceblue', edgecolor='blue', alpha=0.9)
+    )
+
+    ax.legend(loc='lower left', framealpha=0.9)
     plt.tight_layout()
     plt.savefig(save_path, dpi=200)
     plt.close()
@@ -513,7 +574,12 @@ def plot_fs_spectrum(
     """
     fig, ax = plt.subplots(figsize=(8, 6))
 
-    norm_fs = power_fs / (np.max(power_fs, axis=0, keepdims=True) + 1e-12)
+    col_max = np.max(power_fs, axis=0, keepdims=True)
+    global_max = np.max(power_fs)
+    valid_cols = (col_max > 0.03 * global_max)
+    norm_fs = np.where(valid_cols, power_fs / (col_max + 1e-12), power_fs / (global_max + 1e-12))
+    norm_fs = np.clip(norm_fs, 0.0, 1.0)
+
     extent = [freqs[0], freqs[-1], slowness_skm[0], slowness_skm[-1]]
     im = ax.imshow(
         norm_fs,
@@ -526,11 +592,11 @@ def plot_fs_spectrum(
     )
 
     # Reference slowness guide lines (dashed lines as in Figure 1 of page 3)
+    ax.axhline(0.33, color='black', linestyle='--', linewidth=1.0, alpha=0.8)
     ax.axhline(0.5, color='black', linestyle='--', linewidth=1.0, alpha=0.8)
     ax.axhline(1.0, color='black', linestyle='--', linewidth=1.0, alpha=0.8)
-    ax.axhline(1.5, color='black', linestyle='--', linewidth=1.0, alpha=0.8)
 
-    ax.set_xlim(freqs[0], freqs[-1])
+    ax.set_xlim(0.0, min(60.0, freqs[-1]))
     ax.set_ylim(slowness_skm[0], slowness_skm[-1])
     ax.set_xlabel("Frequency (Hz)", fontsize=11)
     ax.set_ylabel("Phase Slowness (s/km)", fontsize=11)

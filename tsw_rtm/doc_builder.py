@@ -131,12 +131,22 @@ def build_das_guide_docx(output_dir: str, docx_path: str = None, parameters=None
     add_heading_2("2.2 Espectros de frecuencia-velocidad (f-v) y modelos 1D en profundidad")
     add_body(
         "Transformación al dominio frecuencia-velocidad de fase para resolver las ramas de modos normales y modos de fuga (leaky modes). "
-        "A la derecha se presenta el perfil unidimensional de velocidad de onda de corte (Vs) en función de la profundidad (z)."
+        "A la derecha se presenta el perfil unidimensional regional de velocidad de onda de corte (Vs) en función de la profundidad (z)."
     )
     add_image_if_exists(
         "2_2_fv_and_1d_profile.png",
         width_inches=6.2,
-        caption="Figura 2.2: Espectro de frecuencia-velocidad de fase (f-v) y b) modelo 1D de velocidad Vs en profundidad."
+        caption="Figura 2.2: a) Espectro de frecuencia-velocidad de fase (f-v) en banda ancha y b) modelo 1D regional de velocidad Vs (0 - 1000 m)."
+    )
+    add_body(
+        "A continuación se presenta el perfil de detalle somero (zoom a los primeros 400 metros de profundidad) y la determinación "
+        "del parámetro Vs30 (velocidad promedio de onda de corte en los primeros 30 metros), fundamental para la caracterización "
+        "geotécnica de efectos de sitio y clasificación de suelo según normativas internacionales:"
+    )
+    add_image_if_exists(
+        "2_2_c_vs30_depth_zoom.png",
+        width_inches=5.2,
+        caption="Figura 2.2.c: Perfil 1D somero de velocidad Vs (0 - 400 m) con horizonte a 30 metros y estimación de Vs30."
     )
 
     add_heading_2("2.3 Espectros f-s (frecuencia-lentitud)")

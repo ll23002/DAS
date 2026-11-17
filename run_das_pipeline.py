@@ -24,6 +24,7 @@ from tsw_rtm.dispersion import (
     compute_kf_grid,
     compute_fv_spectrum,
     extract_dispersion_and_1d_profile,
+    compute_vs30,
     compute_fs_spectrum
 )
 from tsw_rtm.doc_builder import build_das_guide_docx
@@ -40,6 +41,7 @@ from tsw_rtm.visualizer import (
     plot_ccf_and_green,
     plot_fk_dispersion_image_c,
     plot_fv_and_1d_profile,
+    plot_depth_zoom_vs30,
     plot_fs_spectrum,
     save_matrix_csv
 )
@@ -150,7 +152,7 @@ def run_pipeline(cfg):
     lags_axis = None
     dt_proc = 1.0 / target_fs
     qc_saved = False
-    fk_store, fk_rows = [], []
+    fk_store, fk_bb_store, fk_rows = [], [], []
 
     t_stack_start = time.time()
     for f_idx, fpath in enumerate(file_list):
@@ -169,6 +171,13 @@ def run_pipeline(cfg):
 
         fk_pow, fk_f, fk_k = compute_fk_power(bp_data, dt=dt_proc, dx=dx)
         fk_store.append((fname, fk_pow, fk_f, fk_k))
+
+        # Broadband decimation for dispersion spectra and high-frequency display (Nyquist = 125 Hz)
+        dec_bb, dt_bb, fs_bb = decimate_time(raw_data, fs_orig, target_fs=250.0)
+        bp_bb = bandpass_filter(dec_bb, fs=fs_bb, fmin=0.8, fmax=98.0)
+        fk_pow_bb, fk_f_bb, fk_k_bb = compute_fk_power(bp_bb, dt=dt_bb, dx=dx)
+        fk_bb_store.append((fname, fk_pow_bb, fk_f_bb, fk_k_bb))
+
         m = fk_metrics(fk_pow, fk_f, fk_k, fk_vmin, fk_vmax, fmin, fmax)
         m.update({
             "file": fname,
@@ -218,9 +227,10 @@ def run_pipeline(cfg):
         titles=[s[0] for s in fk_store], save_path=f"{output_dir}/6_fk_per_file.png", fmax_plot=fmax + 1.0,
         vlines=(fk_vmin, fk_vmax)
     )
+    # Batch F-K spectra for Word document displayed up to 25 Hz
     plot_fk_spectra_batches(
-        spectra=[s[1] for s in fk_store], freqs=fk_store[0][2], wavenumbers=fk_store[0][3],
-        titles=[s[0] for s in fk_store], save_prefix=f"{output_dir}/6_fk", fmax_plot=fmax + 1.0,
+        spectra=[s[1] for s in fk_bb_store], freqs=fk_bb_store[0][2], wavenumbers=fk_bb_store[0][3],
+        titles=[s[0] for s in fk_bb_store], save_prefix=f"{output_dir}/6_fk", fmax_plot=25.0,
         vlines=(fk_vmin, fk_vmax), batch_size=3
     )
     with open(f"{output_dir}/csv/6_fk_metrics_per_file.csv", "w", newline="") as fh:
@@ -228,30 +238,35 @@ def run_pipeline(cfg):
         w.writeheader()
         w.writerows(fk_rows)
 
-    # 2.1, 2.2, 2.3 Dispersion Analysis: F-K Image C, F-V with 1D profile, F-S
-    print("Calculando espectros de dispersión (F-K imagen c, F-V con 1D, F-S)...")
-    mean_fk_pow = np.mean([s[1] for s in fk_store], axis=0)
-    fk_f_axis = fk_store[0][2]
-    fk_k_axis = fk_store[0][3]
+    # 2.1, 2.2, 2.3 Dispersion Analysis: F-K Image C, F-V with 1D profile, zoom 400 m Vs30, F-S
+    print("Calculando espectros de dispersión en banda ancha (F-K imagen c, F-V con 1D, zoom 400 m Vs30, F-S)...")
+    mean_fk_bb = np.mean([s[1] for s in fk_bb_store], axis=0)
+    fk_f_bb_axis = fk_bb_store[0][2]
+    fk_k_bb_axis = fk_bb_store[0][3]
 
-    # Numeral 2.1: Image c (k vs f)
+    # Numeral 2.1: Image c (k vs f, up to 100 Hz)
     p_kf, f_sel_c, k_sel_km = compute_kf_grid(
-        mean_fk_pow, fk_f_axis, fk_k_axis, fmax=min(80.0, target_fs / 2.0), kmax_km=25.0
+        mean_fk_bb, fk_f_bb_axis, fk_k_bb_axis, fmax=100.0, kmax_km=25.0
     )
     plot_fk_dispersion_image_c(f_sel_c, k_sel_km, p_kf, save_path=f"{output_dir}/2_1_fk_dispersion_c.png")
     save_matrix_csv(f"{output_dir}/csv/2_1_fk_dispersion_c.csv", p_kf, k_sel_km, f_sel_c, "wavenumber_1_per_km", "freq_Hz")
 
     # Numeral 2.2: F-V and 1D Vs profile
     p_fv, f_sel_v, v_kms = compute_fv_spectrum(
-        mean_fk_pow, fk_f_axis, fk_k_axis, fmin=fmin, fmax=min(45.0, target_fs / 2.0)
+        mean_fk_bb, fk_f_bb_axis, fk_k_bb_axis, fmin=1.0, fmax=95.0, vmin_kms=0.15, vmax_kms=4.0, nv=220
     )
-    v_curve, depth_m, vs_kms = extract_dispersion_and_1d_profile(p_fv, f_sel_v, v_kms)
+    v_curve, depth_m, vs_kms = extract_dispersion_and_1d_profile(p_fv, f_sel_v, v_kms, depth_max_m=1000.0)
     plot_fv_and_1d_profile(f_sel_v, v_kms, p_fv, depth_m, vs_kms, save_path=f"{output_dir}/2_2_fv_and_1d_profile.png")
     save_matrix_csv(f"{output_dir}/csv/2_2_fv_spectrum.csv", p_fv, v_kms, f_sel_v, "velocity_km_per_s", "freq_Hz")
 
+    # Numeral 2.2 c: Zoom 0-400 m and Vs30
+    vs30_val, site_class = compute_vs30(depth_m, vs_kms * 1000.0)
+    print(f"  Vs30 calculado a 30 m de profundidad: {vs30_val:.1f} m/s ({site_class})")
+    plot_depth_zoom_vs30(depth_m, vs_kms, vs30_val, site_class, save_path=f"{output_dir}/2_2_c_vs30_depth_zoom.png")
+
     # Numeral 2.3: F-S
     p_fs, f_sel_s, s_skm = compute_fs_spectrum(
-        mean_fk_pow, fk_f_axis, fk_k_axis, fmin=fmin, fmax=min(45.0, target_fs / 2.0)
+        mean_fk_bb, fk_f_bb_axis, fk_k_bb_axis, fmin=1.0, fmax=95.0, smin_skm=0.25, smax_skm=2.0
     )
     plot_fs_spectrum(f_sel_s, s_skm, p_fs, save_path=f"{output_dir}/2_3_fs_spectrum.png")
     save_matrix_csv(f"{output_dir}/csv/2_3_fs_spectrum.csv", p_fs, s_skm, f_sel_s, "slowness_s_per_km", "freq_Hz")

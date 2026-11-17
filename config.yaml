@@ -4,13 +4,13 @@
 modo: [real, sintetico]
 
 real:
-  datos: ~/Downloads/DAS/M4.1_Guatemala   # carpeta con los archivos .h5 (o un solo archivo .h5)
+  datos: ./StrainRate/2026-09-30/08/   # carpeta con los archivos .h5 (o un solo archivo .h5)
   resultados: resultados/real             # carpeta donde se guardan figuras y tablas
   max_archivos: null                      # null = usar todos; o un número para usar solo los primeros
 
   cable:
     canal_inicial: 1200                   # primer canal (punto del cable) a analizar
-    num_canales: 600                      # cuántos canales analizar
+    num_canales: 100                      # cuántos canales analizar
 
   filtrado:
     frecuencia_muestreo_hz: 50.0          # frecuencia a la que se reducen los datos
@@ -30,9 +30,9 @@ real:
   modelo_velocidad:
     num_celdas_profundidad: 120           # celdas del modelo en profundidad
     paso_profundidad_m: 10.0              # tamaño de cada celda en profundidad (m)
-    sedimento_velocidad_ms: 1100.0        # velocidad en superficie del sedimento (m/s)
+    sedimento_velocidad_ms: 450.0         # velocidad en superficie del sedimento (m/s)
     sedimento_gradiente: 0.4              # aumento de velocidad con la profundidad (sedimento)
-    roca_velocidad_ms: 2400.0             # velocidad en superficie de la roca (m/s)
+    roca_velocidad_ms: 2000.0             # velocidad en superficie de la roca (m/s)
     roca_gradiente: 0.2                   # aumento de velocidad con la profundidad (roca)
     sedimento_a_la_izquierda: true        # true si el sedimento está a la izquierda de la falla
     celdas_inundacion: 8                  # celdas de margen alrededor de la falla en la inundación
